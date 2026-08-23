@@ -1,0 +1,1727 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<title>Trace &amp; Write — Racecars &amp; Unicorns</title>
+<meta name="description" content="A handwriting tracing app for kids: race letters and numbers around the track, or write freehand and cast a unicorn spell." />
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Racing+Sans+One&family=Baloo+2:wght@500;600;700;800&family=Chewy&display=swap" rel="stylesheet">
+<style>
+/* =========================================================
+   Design tokens
+   ========================================================= */
+:root {
+  --neutral-bg-1: #eaf6ff;
+  --neutral-bg-2: #fff9ec;
+  --neutral-ink: #233046;
+  --neutral-accent: #ff8a3d;
+  --neutral-accent-2: #34b1a0;
+
+  --race-bg-1: #171a21;
+  --race-bg-2: #23262f;
+  --race-ink: #f4f1e8;
+  --race-track: #3a3f4b;
+  --race-accent: #e0402a;
+  --race-accent-2: #ffc93c;
+  --race-line: #f4f1e8;
+
+  --uni-bg-1: #f4e9ff;
+  --uni-bg-2: #ffe6f3;
+  --uni-bg-3: #e2fbf1;
+  --uni-ink: #4a3266;
+  --uni-accent: #c86bf0;
+  --uni-accent-2: #f5c542;
+  --uni-accent-3: #7ad0d8;
+
+  --radius-lg: 26px;
+  --radius-md: 18px;
+  --radius-sm: 12px;
+  --shadow-soft: 0 10px 30px rgba(30, 20, 60, 0.12);
+  --font-display: "Chewy", cursive;
+  --font-race: "Racing Sans One", sans-serif;
+  --font-body: "Baloo 2", system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  color: var(--neutral-ink);
+  background: linear-gradient(160deg, var(--neutral-bg-1), var(--neutral-bg-2));
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: inherit;
+}
+button:focus-visible, .tab:focus-visible, .age-chip:focus-visible {
+  outline: 3px solid #2b6fff;
+  outline-offset: 2px;
+}
+
+#app { max-width: 640px; margin: 0 auto; padding-bottom: env(safe-area-inset-bottom); min-height: 100vh; min-height: 100dvh; position: relative; }
+
+.screen { display: none; padding: 1.25rem 1.25rem 2rem; animation: fadeIn 0.35s ease; }
+.screen.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* =========================================================
+   Theming per game mode
+   ========================================================= */
+body.theme-race #screen-game {
+  background: radial-gradient(circle at 50% 0%, var(--race-bg-2), var(--race-bg-1));
+  color: var(--race-ink);
+  margin: 0 -1.25rem;
+  padding: 1.25rem 1.25rem 2rem;
+  border-radius: 0 0 32px 32px;
+}
+body.theme-unicorn #screen-game {
+  background: linear-gradient(150deg, var(--uni-bg-1), var(--uni-bg-2) 55%, var(--uni-bg-3));
+  color: var(--uni-ink);
+  margin: 0 -1.25rem;
+  padding: 1.25rem 1.25rem 2rem;
+  border-radius: 0 0 32px 32px;
+}
+body.theme-race #game-char-label,
+body.theme-race .feedback-score { font-family: var(--font-race); letter-spacing: 0.5px; }
+body.theme-unicorn #game-char-label,
+body.theme-unicorn .feedback-score { font-family: var(--font-display); }
+
+/* =========================================================
+   Menu screen
+   ========================================================= */
+.menu-wrap { padding-top: 2.5rem; text-align: center; }
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 3px;
+  font-weight: 700;
+  font-size: 0.75rem;
+  color: var(--neutral-accent-2);
+  margin: 0 0 0.35rem;
+}
+.menu-title {
+  font-family: var(--font-display);
+  font-size: clamp(2.1rem, 8vw, 3rem);
+  margin: 0 0 0.4rem;
+  color: var(--neutral-ink);
+}
+.menu-sub { margin: 0 0 1.75rem; opacity: 0.75; font-size: 1.05rem; }
+
+.mode-cards { display: grid; gap: 1rem; margin-bottom: 1.75rem; }
+@media (min-width: 520px) { .mode-cards { grid-template-columns: 1fr 1fr; } }
+
+.mode-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.35rem;
+  padding: 1.75rem 1.25rem 1.5rem;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.mode-card:hover, .mode-card:active { transform: translateY(-3px) scale(1.01); }
+.mode-card--race { background: linear-gradient(165deg, #23262f, #171a21); color: var(--race-ink); }
+.mode-card--unicorn { background: linear-gradient(165deg, #ffe6f3, #f4e9ff); color: var(--uni-ink); }
+.mode-card__icon { font-size: 2.75rem; line-height: 1; margin-bottom: 0.25rem; }
+.mode-card__name { font-family: var(--font-display); font-size: 1.5rem; }
+.mode-card--race .mode-card__name { font-family: var(--font-race); font-size: 1.6rem; }
+.mode-card__desc { font-size: 0.92rem; opacity: 0.85; line-height: 1.35; }
+.mode-card__cta {
+  margin-top: 0.6rem;
+  font-weight: 700;
+  font-size: 0.85rem;
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+}
+.mode-card--race .mode-card__cta { background: var(--race-accent); color: #fff; }
+.mode-card--unicorn .mode-card__cta { background: var(--uni-accent); color: #fff; }
+
+.age-toggle { margin: 1.5rem 0 1rem; }
+.age-toggle__label { display: block; font-weight: 700; font-size: 0.9rem; opacity: 0.75; margin-bottom: 0.6rem; }
+.age-toggle__buttons { display: flex; gap: 0.6rem; justify-content: center; flex-wrap: wrap; }
+.age-chip {
+  padding: 0.55rem 1rem;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: var(--shadow-soft);
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+.age-chip span { display: block; font-weight: 500; font-size: 0.72rem; opacity: 0.65; }
+.age-chip[aria-pressed="true"] { background: var(--neutral-ink); color: #fff; }
+
+.link-btn { margin-top: 0.75rem; font-weight: 700; text-decoration: underline; opacity: 0.8; }
+.link-btn.danger { color: #c23; }
+
+/* =========================================================
+   Top bar (picker / game / progress)
+   ========================================================= */
+.bar { display: flex; align-items: center; justify-content: space-between; padding: 0.4rem 0 1rem; }
+.bar-title { margin: 0; font-size: 1.3rem; font-family: var(--font-display); }
+theme-race .bar-title { font-family: var(--font-race); }
+.icon-btn {
+  width: 2.25rem; height: 2.25rem;
+  display: grid; place-items: center;
+  background: rgba(0,0,0,0.06);
+  border-radius: 50%;
+  font-size: 1.1rem;
+}
+body.theme-race .icon-btn { background: rgba(255,255,255,0.1); }
+body.theme-unicorn .icon-btn { background: rgba(255,255,255,0.55); }
+
+/* =========================================================
+   Picker screen
+   ========================================================= */
+.picker-tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+.tab {
+  flex: 1;
+  padding: 0.6rem;
+  border-radius: var(--radius-sm);
+  background: #fff;
+  font-weight: 700;
+  box-shadow: var(--shadow-soft);
+}
+.tab[aria-selected="true"] { background: var(--neutral-ink); color: #fff; }
+
+.picker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  gap: 0.6rem;
+  margin-bottom: 1.25rem;
+}
+.picker-cell {
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  background: #fff;
+  border-radius: var(--radius-sm);
+  font-size: 1.4rem;
+  font-weight: 700;
+  box-shadow: var(--shadow-soft);
+  position: relative;
+}
+.picker-cell.mastered { background: linear-gradient(160deg, #ffe9a8, #ffcf5c); }
+.picker-cell .star { position: absolute; top: -6px; right: -4px; font-size: 0.95rem; }
+.picker-continue { width: 100%; }
+
+.primary-btn {
+  background: var(--neutral-ink);
+  color: #fff;
+  padding: 0.85rem 1.25rem;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 1rem;
+  box-shadow: var(--shadow-soft);
+}
+.ghost-btn {
+  background: rgba(0,0,0,0.06);
+  padding: 0.75rem 1.1rem;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+/* =========================================================
+   Game screen
+   ========================================================= */
+.prompt-text { text-align: center; font-weight: 700; font-size: 1.1rem; margin: 0 0 0.9rem; opacity: 0.9; }
+
+.stage { position: relative; }
+.canvas-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  max-height: 62vh;
+  margin: 0 auto;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: #fff;
+  box-shadow: var(--shadow-soft);
+  touch-action: none;
+}
+body.theme-race .canvas-wrap {
+  background:
+    repeating-conic-gradient(#2b2f39 0% 25%, #23262f 0% 50%) 0 0 / 22px 22px,
+    #23262f;
+  border: 3px solid var(--race-accent-2);
+}
+body.theme-unicorn .canvas-wrap {
+  background: radial-gradient(circle at 30% 20%, #fff, #fdf3ff 60%, #f7e9ff);
+  border: 3px solid var(--uni-accent-2);
+}
+
+#guide-canvas, #draw-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+#draw-canvas { z-index: 2; }
+
+.deco { position: absolute; pointer-events: none; z-index: 3; display: none; }
+body.theme-race .deco--race { display: block; top: 8px; right: 8px; width: 84px; }
+.gauge { width: 100%; display: block; }
+#gauge-needle { transform-origin: 50px 78px; transition: transform 0.6s cubic-bezier(.2,.9,.3,1.3); }
+
+body.theme-unicorn .deco--unicorn { display: block; inset: 0; }
+.deco--unicorn .sparkle {
+  position: absolute;
+  font-size: 1.3rem;
+  color: var(--uni-accent-2);
+  opacity: 0.85;
+  animation: twinkle 2.4s ease-in-out infinite;
+}
+.sparkle.s1 { top: 10px; left: 12px; animation-delay: 0s; }
+.sparkle.s2 { top: 16px; right: 16px; animation-delay: 0.6s; color: var(--uni-accent); }
+.sparkle.s3 { bottom: 10px; left: 18px; animation-delay: 1.2s; color: var(--uni-accent-3); }
+@keyframes twinkle { 0%, 100% { opacity: 0.25; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1.15); } }
+
+.result-bar {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
+  background: #fff;
+  color: var(--neutral-ink);
+  box-shadow: var(--shadow-soft);
+  animation: pop 0.3s cubic-bezier(.2,.9,.3,1.4);
+}
+.result-bar.show { display: flex; }
+.result-bar__info { display: flex; align-items: center; gap: 0.6rem; min-width: 0; }
+.result-bar__badge { font-size: 1.9rem; line-height: 1; flex-shrink: 0; }
+.result-bar__text { min-width: 0; }
+.result-bar__score { margin: 0; font-size: 1.3rem; font-weight: 800; line-height: 1.1; }
+.result-bar__line { margin: 0.1rem 0 0; font-size: 0.85rem; font-weight: 700; opacity: 0.8; }
+.result-bar__actions { display: flex; gap: 0.5rem; flex-shrink: 0; }
+.result-bar__actions .ghost-btn,
+.result-bar__actions .primary-btn { padding: 0.55rem 0.9rem; font-size: 0.85rem; white-space: nowrap; }
+@keyframes pop { from { transform: scale(0.85); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+.controls { display: flex; gap: 0.6rem; margin-top: 1rem; }
+.ctrl-btn {
+  flex: 1;
+  padding: 0.8rem 0.5rem;
+  border-radius: var(--radius-sm);
+  background: rgba(255,255,255,0.85);
+  color: var(--neutral-ink);
+  font-weight: 700;
+  font-size: 0.92rem;
+  box-shadow: var(--shadow-soft);
+}
+body.theme-race .ctrl-btn { background: rgba(255,255,255,0.08); color: var(--race-ink); }
+body.theme-unicorn .ctrl-btn { background: rgba(255,255,255,0.7); color: var(--uni-ink); }
+.ctrl-btn--primary { background: var(--neutral-accent); color: #fff; flex: 1.4; }
+body.theme-race .ctrl-btn--primary { background: var(--race-accent); }
+body.theme-unicorn .ctrl-btn--primary { background: var(--uni-accent); }
+
+/* =========================================================
+   Progress screen
+   ========================================================= */
+.progress-summary { text-align: center; margin-bottom: 1.25rem; }
+.progress-count { font-family: var(--font-display); font-size: 2.6rem; margin: 0; }
+.progress-caption { margin: 0; opacity: 0.7; font-weight: 700; }
+.progress-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(56px, 1fr));
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+.progress-cell {
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  background: #fff;
+  font-weight: 700;
+  box-shadow: var(--shadow-soft);
+  opacity: 0.55;
+}
+.progress-cell.mastered { opacity: 1; background: linear-gradient(160deg, #ffe9a8, #ffcf5c); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+}
+
+</style>
+</head>
+<body class="theme-neutral">
+
+<div id="app">
+
+  <!-- ===================== SCREEN: MODE SELECT ===================== -->
+  <section id="screen-menu" class="screen active">
+    <div class="menu-wrap">
+      <p class="eyebrow">Trace &amp; Write</p>
+      <h1 class="menu-title">Choose your adventure</h1>
+      <p class="menu-sub">Pick a track. Every letter and number is a mission.</p>
+
+      <div class="mode-cards">
+        <button class="mode-card mode-card--race" data-mode="trace" type="button">
+          <span class="mode-card__icon" aria-hidden="true">🏎️</span>
+          <span class="mode-card__name">Racecar Trace</span>
+          <span class="mode-card__desc">Follow the dashed track with your finger. Cross the line to win!</span>
+          <span class="mode-card__cta">Start the engine</span>
+        </button>
+        <button class="mode-card mode-card--unicorn" data-mode="free" type="button">
+          <span class="mode-card__icon" aria-hidden="true">🦄</span>
+          <span class="mode-card__name">Unicorn Magic</span>
+          <span class="mode-card__desc">No lines to follow — write it from memory and cast the spell!</span>
+          <span class="mode-card__cta">Open the spellbook</span>
+        </button>
+      </div>
+
+      <div class="age-toggle" role="group" aria-label="Difficulty">
+        <span class="age-toggle__label">How careful should I be?</span>
+        <div class="age-toggle__buttons">
+          <button type="button" class="age-chip" data-age="loose" aria-pressed="true">Little racer <span>(ages 3–4)</span></button>
+          <button type="button" class="age-chip" data-age="strict" aria-pressed="false">Sharp scribe <span>(ages 5–6)</span></button>
+        </div>
+      </div>
+
+      <button type="button" id="btn-view-progress" class="link-btn">See my progress →</button>
+    </div>
+  </section>
+
+  <!-- ===================== SCREEN: PICKER ===================== -->
+  <section id="screen-picker" class="screen">
+    <header class="bar">
+      <button type="button" class="icon-btn" data-nav="menu" aria-label="Back to menu">←</button>
+      <h2 class="bar-title" id="picker-title">Pick a letter</h2>
+      <button type="button" class="icon-btn" id="btn-mute" aria-label="Mute sound">🔊</button>
+    </header>
+
+    <div class="picker-tabs" role="tablist">
+      <button type="button" class="tab" data-set="letters" role="tab" aria-selected="true">Letters</button>
+      <button type="button" class="tab" data-set="numbers" role="tab" aria-selected="false">Numbers</button>
+    </div>
+
+    <div class="picker-grid" id="picker-grid"></div>
+
+    <button type="button" id="btn-continue" class="primary-btn picker-continue">Continue practicing →</button>
+  </section>
+
+  <!-- ===================== SCREEN: GAME ===================== -->
+  <section id="screen-game" class="screen">
+    <header class="bar">
+      <button type="button" class="icon-btn" data-nav="picker" aria-label="Back to letter picker">←</button>
+      <h2 class="bar-title" id="game-char-label">A</h2>
+      <button type="button" class="icon-btn" id="btn-mute-2" aria-label="Mute sound">🔊</button>
+    </header>
+
+    <p class="prompt-text" id="prompt-text">Trace the letter A</p>
+
+    <div class="stage" id="stage">
+      <div class="canvas-wrap" id="canvas-wrap">
+        <canvas id="guide-canvas"></canvas>
+        <canvas id="draw-canvas"></canvas>
+
+        <!-- Racecar decoration -->
+        <div class="deco deco--race" id="deco-race" aria-hidden="true">
+          <svg viewBox="0 0 100 100" class="gauge">
+            <path d="M 15 78 A 40 40 0 1 1 85 78" fill="none" stroke="var(--race-track)" stroke-width="8" stroke-linecap="round"/>
+            <path d="M 15 78 A 40 40 0 1 1 85 78" fill="none" stroke="var(--race-accent)" stroke-width="8" stroke-linecap="round"
+                  stroke-dasharray="188" stroke-dashoffset="188" id="gauge-fill"/>
+            <line x1="50" y1="78" x2="50" y2="40" stroke="var(--race-ink)" stroke-width="3" stroke-linecap="round" id="gauge-needle" transform="rotate(-90 50 78)"/>
+            <circle cx="50" cy="78" r="5" fill="var(--race-ink)"/>
+          </svg>
+        </div>
+
+        <!-- Unicorn decoration -->
+        <div class="deco deco--unicorn" id="deco-unicorn" aria-hidden="true">
+          <span class="sparkle s1">✦</span>
+          <span class="sparkle s2">✧</span>
+          <span class="sparkle s3">✦</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Result bar: lives BELOW the canvas so the drawing + answer reveal
+         are always fully visible while reading the score. -->
+    <div class="result-bar" id="result-bar">
+      <div class="result-bar__info">
+        <span class="result-bar__badge" id="feedback-badge">🏁</span>
+        <div class="result-bar__text">
+          <p class="result-bar__score" id="feedback-score">0%</p>
+          <p class="result-bar__line" id="feedback-line">Nice try!</p>
+        </div>
+      </div>
+      <div class="result-bar__actions">
+        <button type="button" class="ghost-btn" id="btn-retry">Try again</button>
+        <button type="button" class="primary-btn" id="btn-next">Next →</button>
+      </div>
+    </div>
+
+    <div class="controls" id="controls">
+      <button type="button" class="ctrl-btn" id="btn-hear">🔈 Hear it</button>
+      <button type="button" class="ctrl-btn" id="btn-clear">↺ Clear</button>
+      <button type="button" class="ctrl-btn ctrl-btn--primary" id="btn-check">✓ Check my writing</button>
+    </div>
+  </section>
+
+  <!-- ===================== SCREEN: PROGRESS ===================== -->
+  <section id="screen-progress" class="screen">
+    <header class="bar">
+      <button type="button" class="icon-btn" data-nav="menu" aria-label="Back to menu">←</button>
+      <h2 class="bar-title">My progress</h2>
+      <span style="width:2.25rem"></span>
+    </header>
+
+    <div class="progress-summary">
+      <p class="progress-count"><span id="progress-count-num">0</span> / 36</p>
+      <p class="progress-caption">letters &amp; numbers mastered</p>
+    </div>
+
+    <div class="progress-grid" id="progress-grid"></div>
+
+    <button type="button" id="btn-reset-progress" class="link-btn danger">Reset all progress</button>
+  </section>
+
+</div>
+
+<script>
+
+
+/* ================= templates.js ================= */
+/**
+ * Handwriting stroke templates.
+ *
+ * Each character maps to an array of "strokes" (pen-down segments).
+ * Each stroke is an array of [x, y] points in a normalized 0–100 box.
+ * At render/score time these get scaled + centered into the actual canvas.
+ *
+ * Multiple strokes = places a pencil would lift (e.g. crossing a T,
+ * the two humps of a B). Kids are not required to draw strokes in the
+ * "correct" order — scoring pools all points together — so lift order
+ * never penalizes them.
+ */
+
+const LETTER_TEMPLATES = {
+  A: [
+    [[30, 80], [50, 20]],
+    [[50, 20], [70, 80]],
+    [[38, 55], [62, 55]],
+  ],
+  B: [
+    [[30, 20], [30, 80]],
+    [[30, 20], [48, 22], [54, 30], [54, 38], [48, 48], [30, 50]],
+    [[30, 50], [50, 52], [58, 62], [58, 70], [50, 78], [30, 80]],
+  ],
+  C: [
+    [[66, 30], [54, 22], [40, 24], [31, 36], [30, 50], [31, 64], [40, 76], [54, 78], [66, 70]],
+  ],
+  D: [
+    [[30, 20], [30, 80]],
+    [[30, 20], [50, 22], [62, 32], [65, 50], [62, 68], [50, 78], [30, 80]],
+  ],
+  E: [
+    [[30, 20], [30, 80]],
+    [[30, 20], [66, 20]],
+    [[30, 50], [58, 50]],
+    [[30, 80], [66, 80]],
+  ],
+  F: [
+    [[30, 20], [30, 80]],
+    [[30, 20], [66, 20]],
+    [[30, 50], [58, 50]],
+  ],
+  G: [
+    [[66, 30], [54, 22], [40, 24], [31, 36], [30, 50], [31, 64], [40, 76], [54, 78], [66, 70], [66, 54], [52, 54]],
+  ],
+  H: [
+    [[30, 20], [30, 80]],
+    [[70, 20], [70, 80]],
+    [[30, 50], [70, 50]],
+  ],
+  I: [
+    [[40, 20], [60, 20]],
+    [[50, 20], [50, 80]],
+    [[40, 80], [60, 80]],
+  ],
+  J: [
+    [[60, 20], [60, 64], [58, 74], [50, 79], [40, 78], [33, 70]],
+  ],
+  K: [
+    [[30, 20], [30, 80]],
+    [[70, 20], [30, 50]],
+    [[30, 50], [70, 80]],
+  ],
+  L: [
+    [[30, 20], [30, 80]],
+    [[30, 80], [66, 80]],
+  ],
+  M: [
+    [[28, 80], [28, 20], [50, 55], [72, 20], [72, 80]],
+  ],
+  N: [
+    [[28, 80], [28, 20], [72, 80], [72, 20]],
+  ],
+  O: [
+    [[50, 20], [64, 24], [70, 38], [70, 50], [70, 62], [64, 76], [50, 80], [36, 76], [30, 62], [30, 50], [30, 38], [36, 24], [50, 20]],
+  ],
+  P: [
+    [[30, 20], [30, 80]],
+    [[30, 20], [48, 22], [54, 30], [54, 38], [48, 48], [30, 50]],
+  ],
+  Q: [
+    [[50, 20], [64, 24], [70, 38], [70, 50], [70, 62], [64, 76], [50, 80], [36, 76], [30, 62], [30, 50], [30, 38], [36, 24], [50, 20]],
+    [[56, 64], [72, 80]],
+  ],
+  R: [
+    [[30, 20], [30, 80]],
+    [[30, 20], [48, 22], [54, 30], [54, 38], [48, 48], [30, 50]],
+    [[40, 50], [70, 80]],
+  ],
+  S: [
+    [[63, 26], [48, 22], [34, 28], [32, 38], [40, 46], [50, 50], [60, 54], [68, 62], [66, 72], [52, 79], [37, 76], [30, 68]],
+  ],
+  T: [
+    [[30, 20], [70, 20]],
+    [[50, 20], [50, 80]],
+  ],
+  U: [
+    [[30, 20], [30, 60], [34, 74], [46, 80], [54, 80], [66, 74], [70, 60], [70, 20]],
+  ],
+  V: [
+    [[28, 20], [50, 80]],
+    [[50, 80], [72, 20]],
+  ],
+  W: [
+    [[26, 20], [38, 80], [50, 45], [62, 80], [74, 20]],
+  ],
+  X: [
+    [[28, 20], [72, 80]],
+    [[72, 20], [28, 80]],
+  ],
+  Y: [
+    [[28, 20], [50, 50]],
+    [[72, 20], [50, 50]],
+    [[50, 50], [50, 80]],
+  ],
+  Z: [
+    [[28, 20], [72, 20], [30, 80], [72, 80]],
+  ],
+};
+
+const NUMBER_TEMPLATES = {
+  '0': [
+    [[50, 20], [64, 24], [70, 38], [70, 50], [70, 62], [64, 76], [50, 80], [36, 76], [30, 62], [30, 50], [30, 38], [36, 24], [50, 20]],
+  ],
+  '1': [
+    [[40, 28], [50, 20], [50, 80]],
+    [[38, 80], [62, 80]],
+  ],
+  '2': [
+    [[32, 32], [36, 22], [50, 20], [62, 24], [66, 34], [62, 44], [30, 74], [30, 80], [68, 80]],
+  ],
+  '3': [
+    [[32, 26], [46, 20], [60, 22], [66, 30], [64, 40], [54, 48], [64, 54], [68, 66], [62, 76], [48, 80], [34, 76], [30, 68]],
+  ],
+  '4': [
+    [[58, 20], [28, 60], [70, 60]],
+    [[58, 20], [58, 80]],
+  ],
+  '5': [
+    [[64, 20], [34, 20], [32, 44], [46, 40], [60, 44], [66, 56], [64, 70], [52, 78], [38, 78], [30, 70]],
+  ],
+  '6': [
+    [[62, 22], [44, 22], [32, 40], [30, 58], [32, 72], [44, 80], [56, 80], [66, 72], [68, 60], [64, 50], [52, 46], [40, 50], [32, 58]],
+  ],
+  '7': [
+    [[30, 20], [70, 20], [42, 80]],
+  ],
+  '8': [
+    [[50, 20], [40, 22], [34, 30], [36, 38], [46, 44], [54, 44], [64, 38], [66, 30], [60, 22], [50, 20]],
+    [[46, 44], [34, 52], [30, 62], [32, 72], [42, 79], [54, 79], [64, 72], [66, 62], [62, 52], [54, 44]],
+  ],
+  '9': [
+    [[68, 42], [66, 54], [54, 58], [42, 54], [38, 44], [42, 34], [54, 30], [66, 34], [68, 44], [66, 60], [58, 74], [46, 80], [36, 78]],
+  ],
+};
+
+const ALL_TEMPLATES = Object.assign({}, LETTER_TEMPLATES, NUMBER_TEMPLATES);
+
+const LETTER_SET = Object.keys(LETTER_TEMPLATES);
+const NUMBER_SET = Object.keys(NUMBER_TEMPLATES);
+
+
+/* ================= scoring.js ================= */
+/**
+ * Compares a child's drawn strokes against a reference template and
+ * produces a 0–100 similarity score. Works entirely on point clouds so it
+ * doesn't matter how many strokes the child used or in what order.
+ */
+
+function dist2(a, b) {
+  const dx = a[0] - b[0], dy = a[1] - b[1];
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+// Walk a single polyline and emit points spaced `spacing` apart (by arc length).
+function resamplePolyline(points, spacing) {
+  if (points.length < 2) return points.slice();
+  const out = [points[0]];
+  let a = points[0];
+  let carry = 0;
+  for (let i = 1; i < points.length; i++) {
+    let b = points[i];
+    let segLen = dist2(a, b);
+    while (segLen > 0 && carry + segLen >= spacing) {
+      const remain = spacing - carry;
+      const t = remain / segLen;
+      const nx = a[0] + (b[0] - a[0]) * t;
+      const ny = a[1] + (b[1] - a[1]) * t;
+      out.push([nx, ny]);
+      a = [nx, ny];
+      segLen = dist2(a, b);
+      carry = 0;
+    }
+    carry += segLen;
+    a = b;
+  }
+  out.push(points[points.length - 1]);
+  return out;
+}
+
+function resampleStrokes(strokes, spacing) {
+  let all = [];
+  for (const s of strokes) {
+    if (!s || s.length === 0) continue;
+    all = all.concat(s.length > 1 ? resamplePolyline(s, spacing) : s);
+  }
+  return all;
+}
+
+function nearestDist(pt, pts) {
+  let min = Infinity;
+  for (let i = 0; i < pts.length; i++) {
+    const d = dist2(pt, pts[i]);
+    if (d < min) min = d;
+    if (min === 0) break;
+  }
+  return min;
+}
+
+function totalStrokeLength(strokes) {
+  let len = 0;
+  for (const s of strokes) {
+    if (!s) continue;
+    for (let i = 1; i < s.length; i++) len += dist2(s[i - 1], s[i]);
+  }
+  return len;
+}
+
+function boundsOf(strokes) {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const s of strokes) {
+    if (!s) continue;
+    for (const p of s) {
+      if (p[0] < minX) minX = p[0];
+      if (p[0] > maxX) maxX = p[0];
+      if (p[1] < minY) minY = p[1];
+      if (p[1] > maxY) maxY = p[1];
+    }
+  }
+  if (minX === Infinity) return null;
+  return { minX, minY, maxX, maxY, cx: (minX + maxX) / 2, cy: (minY + maxY) / 2, w: maxX - minX, h: maxY - minY };
+}
+
+/**
+ * Free-mode helper: shifts and rescales the reference template HORIZONTALLY
+ * to line up with where the child actually wrote, while leaving its
+ * vertical position untouched (it stays pinned to the ruled lines, which
+ * are the one fixed anchor the child has to go on). There's no visible
+ * guide in free mode, so the child has no way to know where an invisible
+ * "correct" x-position or width was supposed to be - writing further left,
+ * right, narrower, or wider than some fixed expectation shouldn't cost
+ * anything. Only the letter's actual proportions/shape should be judged,
+ * against an answer that's honestly centered on their attempt.
+ *
+ * The horizontal scale factor is clamped so a narrow scribble or a huge
+ * scrawl can't exploit rescaling to trivially "fit" any letter.
+ */
+function adjustTemplateToUser(templateStrokes, userStrokes) {
+  const tb = boundsOf(templateStrokes);
+  const ub = boundsOf(userStrokes);
+  if (!tb || !ub) return templateStrokes;
+  const tWidth = Math.max(tb.w, 1);
+  const uWidth = Math.max(ub.w, 1);
+  const scaleX = Math.max(0.7, Math.min(1.5, uWidth / tWidth));
+  return templateStrokes.map((s) => s.map((p) => [
+    ub.cx + (p[0] - tb.cx) * scaleX,
+    p[1], // vertical position/scale left exactly as-is - pinned to the ruled lines
+  ]));
+}
+
+/**
+ * @param {Array<Array<[number,number]>>} templateStrokes - reference, in pixel space
+ * @param {Array<Array<[number,number]>>} userStrokes - child's drawing, same pixel space
+ * @param {number} tolerance - px distance considered "on target"
+ */
+function scoreDrawing(templateStrokes, userStrokes, tolerance) {
+  const hasInk = userStrokes.some((s) => s && s.length > 1);
+  if (!hasInk) return { percent: 0, coverage: 0, cleanliness: 0, efficiency: 0 };
+
+  const spacing = Math.max(tolerance / 2, 2.5);
+  const templateSamples = resampleStrokes(templateStrokes, spacing);
+  const userSamples = resampleStrokes(userStrokes, spacing);
+
+  if (templateSamples.length === 0 || userSamples.length === 0) {
+    return { percent: 0, coverage: 0, cleanliness: 0, efficiency: 0 };
+  }
+
+  // Coverage: did the child's ink actually pass near every part of the
+  // letter? Computed PER STROKE and then averaged with equal weight per
+  // stroke (not by stroke length) - otherwise a long stroke (like a tall
+  // vertical) can carry the whole score while a short stroke (like a
+  // crossbar) is skipped entirely and barely moves the needle. On top of
+  // that, if any single stroke is nearly untouched, it drags the whole
+  // score down hard - completing 3 of 4 strokes perfectly is still an
+  // incomplete letter.
+  const perStrokeCoverage = templateStrokes.map((stroke) => {
+    if (!stroke || stroke.length === 0) return 1;
+    const strokeSamples = stroke.length > 1 ? resamplePolyline(stroke, spacing) : stroke;
+    if (strokeSamples.length === 0) return 1;
+    let covered = 0;
+    for (const tp of strokeSamples) {
+      if (nearestDist(tp, userSamples) <= tolerance) covered++;
+    }
+    return covered / strokeSamples.length;
+  });
+  const avgStrokeCoverage = perStrokeCoverage.reduce((a, b) => a + b, 0) / perStrokeCoverage.length;
+  const minStrokeCoverage = Math.min(...perStrokeCoverage);
+  const minPenalty = minStrokeCoverage < 0.3 ? (0.6 + minStrokeCoverage * 1.333) : 1;
+  const coverage = avgStrokeCoverage * minPenalty;
+
+  // Cleanliness: is the child's ink actually ON the letter, not wandering
+  // off it? No extra slack here - same tolerance as coverage.
+  let onPath = 0;
+  for (const up of userSamples) {
+    if (nearestDist(up, templateSamples) <= tolerance) onPath++;
+  }
+  const cleanliness = onPath / userSamples.length;
+
+  // Efficiency: scribbling lays down far more ink than a clean single pass
+  // over the letter would need. Penalize ink length well beyond the
+  // template's own length, even if that ink happens to cover the shape.
+  const templateLen = totalStrokeLength(templateStrokes);
+  const userLen = totalStrokeLength(userStrokes);
+  const efficiency = userLen > templateLen * 1.25
+    ? Math.max(0.3, Math.min(1, (templateLen * 1.25) / userLen))
+    : 1;
+
+  // Coverage and cleanliness are multiplied, not blended - both need to be
+  // genuinely good for a high score. Coverage also gets raised to a power
+  // well above 1, so partial completeness is punished much harder than a
+  // straight percentage: half the letter (with perfect precision) should
+  // land around 18-20%, not 50%; 90% complete should land in the high 70s,
+  // not the low 90s. Only a genuinely complete pass earns a high score.
+  const coverageFactor = Math.pow(coverage, 2.4);
+  const percent = Math.round(coverageFactor * cleanliness * efficiency * 100);
+  return {
+    percent: Math.max(0, Math.min(100, percent)),
+    coverage,
+    cleanliness,
+    efficiency,
+  };
+}
+
+function verdictForScore(percent) {
+  if (percent >= 80) return 'excellent';
+  if (percent >= 58) return 'good';
+  if (percent >= 32) return 'okay';
+  return 'retry';
+}
+
+
+/* ================= audio.js ================= */
+/**
+ * All sound effects are synthesized live with the Web Audio API, so the
+ * app has zero binary audio assets and works instantly on GitHub Pages.
+ */
+const SoundFX = (() => {
+  let ctx = null;
+  let muted = false;
+
+  function getCtx() {
+    if (!ctx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      ctx = new AC();
+    }
+    if (ctx.state === 'suspended') ctx.resume();
+    return ctx;
+  }
+
+  function envGain(ac, t0, attack, decay, peak) {
+    const g = ac.createGain();
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.linearRampToValueAtTime(peak, t0 + attack);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + attack + decay);
+    return g;
+  }
+
+  function tone(ac, freq, t0, dur, type, peak) {
+    const osc = ac.createOscillator();
+    osc.type = type || 'sine';
+    osc.frequency.setValueAtTime(freq, t0);
+    const g = envGain(ac, t0, 0.012, dur, peak == null ? 0.2 : peak);
+    osc.connect(g);
+    g.connect(ac.destination);
+    osc.start(t0);
+    osc.stop(t0 + dur + 0.05);
+  }
+
+  function noiseBurst(ac, t0, dur, peak, filterFreq, filterType) {
+    const bufferSize = Math.max(1, Math.floor(ac.sampleRate * dur));
+    const buffer = ac.createBuffer(1, bufferSize, ac.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+    const src = ac.createBufferSource();
+    src.buffer = buffer;
+    const filter = ac.createBiquadFilter();
+    filter.type = filterType || 'bandpass';
+    filter.frequency.value = filterFreq || 1500;
+    const g = envGain(ac, t0, 0.01, dur, peak == null ? 0.15 : peak);
+    src.connect(filter);
+    filter.connect(g);
+    g.connect(ac.destination);
+    src.start(t0);
+    src.stop(t0 + dur + 0.05);
+  }
+
+  function run(fn) {
+    if (muted) return;
+    const ac = getCtx();
+    if (!ac) return;
+    try { fn(ac); } catch (e) { /* ignore audio glitches */ }
+  }
+
+  return {
+    unlock() { run(() => {}); },
+    setMuted(v) { muted = v; },
+    get muted() { return muted; },
+
+    // --- Racecar sounds ---
+    engineRev() {
+      run((ac) => {
+        const t0 = ac.currentTime;
+        const osc = ac.createOscillator();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(70, t0);
+        osc.frequency.exponentialRampToValueAtTime(260, t0 + 0.32);
+        osc.frequency.exponentialRampToValueAtTime(130, t0 + 0.55);
+        const g = ac.createGain();
+        g.gain.setValueAtTime(0.0001, t0);
+        g.gain.linearRampToValueAtTime(0.2, t0 + 0.05);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.6);
+        const filter = ac.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.value = 1100;
+        osc.connect(filter);
+        filter.connect(g);
+        g.connect(ac.destination);
+        osc.start(t0);
+        osc.stop(t0 + 0.65);
+        noiseBurst(ac, t0, 0.45, 0.05, 700, 'lowpass');
+      });
+    },
+    tireSqueal() {
+      run((ac) => {
+        const t0 = ac.currentTime;
+        const osc = ac.createOscillator();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(900, t0);
+        osc.frequency.linearRampToValueAtTime(760, t0 + 0.15);
+        osc.frequency.linearRampToValueAtTime(980, t0 + 0.3);
+        osc.frequency.linearRampToValueAtTime(680, t0 + 0.48);
+        const g = envGain(ac, t0, 0.02, 0.5, 0.1);
+        osc.connect(g);
+        g.connect(ac.destination);
+        osc.start(t0);
+        osc.stop(t0 + 0.55);
+      });
+    },
+    pitStopChime() {
+      run((ac) => {
+        const t0 = ac.currentTime;
+        [523.25, 659.25, 783.99, 1046.5].forEach((f, i) =>
+          tone(ac, f, t0 + i * 0.09, 0.28, 'triangle', 0.18)
+        );
+      });
+    },
+
+    // --- Unicorn sounds ---
+    sparkleChime() {
+      run((ac) => {
+        const t0 = ac.currentTime;
+        const base = [1046.5, 1174.7, 1318.5, 1568, 1760];
+        for (let i = 0; i < 6; i++) {
+          const f = base[Math.floor(Math.random() * base.length)];
+          tone(ac, f, t0 + i * 0.05, 0.35, 'sine', 0.11);
+        }
+      });
+    },
+    harpGliss() {
+      run((ac) => {
+        const t0 = ac.currentTime;
+        const scale = [261.6, 293.7, 329.6, 392, 440, 523.3, 587.3, 659.3, 784];
+        scale.forEach((f, i) => tone(ac, f, t0 + i * 0.045, 0.3, 'triangle', 0.13));
+      });
+    },
+    cheering() {
+      run((ac) => {
+        const t0 = ac.currentTime;
+        noiseBurst(ac, t0, 0.9, 0.13, 2400, 'bandpass');
+        [523.25, 659.25, 783.99].forEach((f, i) =>
+          tone(ac, f, t0 + 0.1 + i * 0.12, 0.4, 'sine', 0.13)
+        );
+      });
+    },
+    fizzle() {
+      run((ac) => {
+        const t0 = ac.currentTime;
+        const osc = ac.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(500, t0);
+        osc.frequency.exponentialRampToValueAtTime(120, t0 + 0.5);
+        const g = envGain(ac, t0, 0.02, 0.6, 0.14);
+        osc.connect(g);
+        g.connect(ac.destination);
+        osc.start(t0);
+        osc.stop(t0 + 0.65);
+      });
+    },
+    tap() {
+      run((ac) => {
+        const t0 = ac.currentTime;
+        tone(ac, 440, t0, 0.08, 'sine', 0.08);
+      });
+    },
+  };
+})();
+
+const Speaker = (() => {
+  let enabled = true;
+  let voice = null;
+  const supported = 'speechSynthesis' in window;
+
+  function pickVoice() {
+    if (!supported) return;
+    const voices = window.speechSynthesis.getVoices();
+    voice =
+      voices.find((v) => /en/i.test(v.lang) && /Samantha|Google US English|Zira|Female/i.test(v.name)) ||
+      voices.find((v) => /en/i.test(v.lang)) ||
+      voices[0] ||
+      null;
+  }
+  if (supported) {
+    window.speechSynthesis.onvoiceschanged = pickVoice;
+    pickVoice();
+  }
+
+  return {
+    speak(text) {
+      if (!enabled || !supported) return;
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.rate = 0.92;
+      u.pitch = 1.05;
+      if (voice) u.voice = voice;
+      window.speechSynthesis.speak(u);
+    },
+    setEnabled(v) {
+      enabled = v;
+      if (!v && supported) window.speechSynthesis.cancel();
+    },
+    get enabled() { return enabled; },
+    unlock() {
+      if (!supported) return;
+      const u = new SpeechSynthesisUtterance(' ');
+      u.volume = 0;
+      window.speechSynthesis.speak(u);
+    },
+  };
+})();
+
+
+/* ================= app.js ================= */
+(() => {
+  'use strict';
+
+  /* ============================= State ============================= */
+  const PROGRESS_KEY = 'trace-write-progress-v1';
+
+  function loadProgress() {
+    try {
+      const raw = localStorage.getItem(PROGRESS_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch (e) { /* ignore */ }
+    return { mastered: {} };
+  }
+  function saveProgress() {
+    try { localStorage.setItem(PROGRESS_KEY, JSON.stringify(state.progress)); } catch (e) { /* ignore */ }
+  }
+
+  const state = {
+    mode: 'trace',        // 'trace' | 'free'
+    ageLevel: 'loose',    // 'loose' | 'strict'
+    set: 'letters',       // 'letters' | 'numbers'
+    currentChar: 'A',
+    userStrokes: [],       // array of strokes; each stroke: array of {x,y}
+    drawing: false,
+    scoredThisRound: false,
+    lastScore: null,
+    progress: loadProgress(),
+    audioUnlocked: false,
+    particles: [],          // unicorn sparkle particles
+    rafId: null,
+    prevSpeedPoint: null,
+  };
+
+  /* ============================= DOM refs ============================= */
+  const $ = (sel) => document.querySelector(sel);
+  const screens = {
+    menu: $('#screen-menu'),
+    picker: $('#screen-picker'),
+    game: $('#screen-game'),
+    progress: $('#screen-progress'),
+  };
+  const body = document.body;
+
+  const pickerGrid = $('#picker-grid');
+  const pickerTitle = $('#picker-title');
+  const tabs = document.querySelectorAll('.tab');
+  const btnContinue = $('#btn-continue');
+
+  const gameCharLabel = $('#game-char-label');
+  const promptText = $('#prompt-text');
+  const canvasWrap = $('#canvas-wrap');
+  const guideCanvas = $('#guide-canvas');
+  const drawCanvas = $('#draw-canvas');
+  const guideCtx = guideCanvas.getContext('2d');
+  const drawCtx = drawCanvas.getContext('2d');
+
+  const gaugeFill = $('#gauge-fill');
+  const gaugeNeedle = $('#gauge-needle');
+
+  const resultBar = $('#result-bar');
+  const controlsRow = $('#controls');
+  const feedbackBadge = $('#feedback-badge');
+  const feedbackScore = $('#feedback-score');
+  const feedbackLine = $('#feedback-line');
+  const btnRetry = $('#btn-retry');
+  const btnNext = $('#btn-next');
+
+  const btnHear = $('#btn-hear');
+  const btnClear = $('#btn-clear');
+  const btnCheck = $('#btn-check');
+  const btnMute = $('#btn-mute');
+  const btnMute2 = $('#btn-mute-2');
+
+  const progressGrid = $('#progress-grid');
+  const progressCountNum = $('#progress-count-num');
+  const btnResetProgress = $('#btn-reset-progress');
+
+  const MASTERY_THRESHOLD = 80;
+  const ALL_CHARS = LETTER_SET.concat(NUMBER_SET);
+
+  /* ============================= Navigation ============================= */
+  function showScreen(name) {
+    Object.values(screens).forEach((s) => s.classList.remove('active'));
+    screens[name].classList.add('active');
+    if (name === 'picker') renderPickerGrid();
+    if (name === 'progress') renderProgressGrid();
+    window.scrollTo({ top: 0, behavior: 'instant' in window ? 'instant' : 'auto' });
+  }
+
+  document.querySelectorAll('[data-nav]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      if (btn.dataset.nav === 'picker') stopGameLoop();
+      showScreen(btn.dataset.nav);
+    });
+  });
+
+  /* ============================= Menu screen ============================= */
+  document.querySelectorAll('.mode-card').forEach((card) => {
+    card.addEventListener('click', () => {
+      unlockAudioAndSpeech();
+      state.mode = card.dataset.mode;
+      state.set = 'letters';
+      syncPickerTabs();
+      pickerTitle.textContent = state.mode === 'trace' ? 'Pick a letter to race' : 'Pick a letter to conjure';
+      showScreen('picker');
+    });
+  });
+
+  document.querySelectorAll('.age-chip').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('.age-chip').forEach((c) => c.setAttribute('aria-pressed', 'false'));
+      chip.setAttribute('aria-pressed', 'true');
+      state.ageLevel = chip.dataset.age;
+    });
+  });
+
+  $('#btn-view-progress').addEventListener('click', () => showScreen('progress'));
+
+  /* ============================= Picker screen ============================= */
+  tabs.forEach((tab) => {
+    tab.addEventListener('click', () => {
+      state.set = tab.dataset.set;
+      syncPickerTabs();
+      renderPickerGrid();
+    });
+  });
+  function syncPickerTabs() {
+    tabs.forEach((t) => t.setAttribute('aria-selected', String(t.dataset.set === state.set)));
+  }
+
+  function renderPickerGrid() {
+    const list = state.set === 'letters' ? LETTER_SET : NUMBER_SET;
+    pickerGrid.innerHTML = '';
+    list.forEach((ch) => {
+      const cell = document.createElement('button');
+      cell.type = 'button';
+      cell.className = 'picker-cell';
+      const mastered = isMastered(ch);
+      if (mastered) cell.classList.add('mastered');
+      cell.innerHTML = ch + (mastered ? '<span class="star">⭐</span>' : '');
+      cell.addEventListener('click', () => {
+        unlockAudioAndSpeech();
+        openChar(ch);
+      });
+      pickerGrid.appendChild(cell);
+    });
+  }
+
+  btnContinue.addEventListener('click', () => {
+    unlockAudioAndSpeech();
+    const next = ALL_CHARS.find((c) => !isMastered(c)) || ALL_CHARS[0];
+    state.set = LETTER_SET.includes(next) ? 'letters' : 'numbers';
+    openChar(next);
+  });
+
+  function isMastered(ch) {
+    const rec = state.progress.mastered[ch];
+    return !!rec && rec.best >= MASTERY_THRESHOLD;
+  }
+
+  /* ============================= Game screen ============================= */
+  function openChar(ch) {
+    state.currentChar = ch;
+    body.classList.remove('theme-race', 'theme-unicorn', 'theme-neutral');
+    body.classList.add(state.mode === 'trace' ? 'theme-race' : 'theme-unicorn');
+    showScreen('game');
+    requestAnimationFrame(() => {
+      setupCanvases();
+      resetRound();
+      speakPrompt();
+      startGameLoop();
+    });
+  }
+
+  function currentTemplate() {
+    return ALL_TEMPLATES[state.currentChar];
+  }
+
+  function updateHeader() {
+    gameCharLabel.textContent = state.currentChar;
+  }
+
+  function promptString() {
+    const kind = LETTER_SET.includes(state.currentChar) ? 'letter' : 'number';
+    return state.mode === 'trace'
+      ? `Trace the ${kind} ${state.currentChar}`
+      : `Write the ${kind} ${state.currentChar}`;
+  }
+
+  function speakPrompt() {
+    promptText.textContent = promptString();
+    Speaker.speak(promptString());
+  }
+
+  btnHear.addEventListener('click', () => { unlockAudioAndSpeech(); Speaker.speak(promptString()); });
+
+  /* --- Canvas setup & responsive transform --- */
+  let transform = { scale: 1, offsetX: 0, offsetY: 0 };
+
+  function setupCanvases() {
+    const rect = canvasWrap.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    [guideCanvas, drawCanvas].forEach((c) => {
+      c.width = Math.round(rect.width * dpr);
+      c.height = Math.round(rect.height * dpr);
+      c.style.width = rect.width + 'px';
+      c.style.height = rect.height + 'px';
+    });
+    guideCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    drawCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    const size = Math.min(rect.width, rect.height) * 0.86;
+    transform = {
+      scale: size / 100,
+      offsetX: (rect.width - size) / 2,
+      offsetY: (rect.height - size) / 2,
+    };
+    drawGuide();
+  }
+  window.addEventListener('resize', () => {
+    if (screens.game.classList.contains('active')) {
+      setupCanvases();
+      redrawUserStrokes();
+    }
+  });
+
+  function toPixel(pt) {
+    return [transform.offsetX + pt[0] * transform.scale, transform.offsetY + pt[1] * transform.scale];
+  }
+
+  function drawGuide() {
+    const rect = canvasWrap.getBoundingClientRect();
+    guideCtx.clearRect(0, 0, rect.width, rect.height);
+
+    // Standard ruled handwriting paper: solid top line, dashed midline,
+    // solid baseline — shown in BOTH modes so kids always practice on
+    // proper handwriting lines, guide or no guide.
+    drawRuledLines();
+
+    if (state.mode !== 'trace') return; // free mode: no dashed letter outline
+    const tmpl = currentTemplate();
+    guideCtx.save();
+    guideCtx.lineCap = 'round';
+    guideCtx.lineJoin = 'round';
+    guideCtx.lineWidth = Math.max(4, transform.scale * 5.5);
+    guideCtx.setLineDash([transform.scale * 3.2, transform.scale * 3.6]);
+    guideCtx.strokeStyle = 'rgba(244, 201, 60, 0.85)';
+    tmpl.forEach((stroke) => {
+      guideCtx.beginPath();
+      stroke.forEach((pt, i) => {
+        const [x, y] = toPixel(pt);
+        if (i === 0) guideCtx.moveTo(x, y); else guideCtx.lineTo(x, y);
+      });
+      guideCtx.stroke();
+    });
+    guideCtx.restore();
+
+    // start dot on the very first stroke's first point
+    const [sx, sy] = toPixel(tmpl[0][0]);
+    guideCtx.beginPath();
+    guideCtx.fillStyle = '#5be07a';
+    guideCtx.arc(sx, sy, Math.max(5, transform.scale * 3), 0, Math.PI * 2);
+    guideCtx.fill();
+  }
+
+  function drawRuledLines() {
+    // Matches the template coordinate box used by LETTER_TEMPLATES:
+    // top rule at y=20, midline at y=50, baseline at y=80 (0-100 space),
+    // extended a little past the letter box on each side.
+    const left = toPixel([12, 0]);
+    const right = toPixel([88, 0]);
+    const topY = toPixel([0, 20])[1];
+    const midY = toPixel([0, 50])[1];
+    const baseY = toPixel([0, 80])[1];
+    const lineColor = state.mode === 'trace' ? 'rgba(244, 241, 232, 0.35)' : 'rgba(74, 50, 102, 0.28)';
+    const lineWidth = Math.max(1.5, transform.scale * 0.7);
+
+    guideCtx.save();
+    guideCtx.strokeStyle = lineColor;
+    guideCtx.lineWidth = lineWidth;
+
+    // Solid top line
+    guideCtx.setLineDash([]);
+    guideCtx.beginPath();
+    guideCtx.moveTo(left[0], topY);
+    guideCtx.lineTo(right[0], topY);
+    guideCtx.stroke();
+
+    // Dashed middle line
+    guideCtx.setLineDash([transform.scale * 2.2, transform.scale * 2.2]);
+    guideCtx.beginPath();
+    guideCtx.moveTo(left[0], midY);
+    guideCtx.lineTo(right[0], midY);
+    guideCtx.stroke();
+
+    // Solid baseline (drawn a touch thicker, like classic ruled paper)
+    guideCtx.setLineDash([]);
+    guideCtx.lineWidth = lineWidth * 1.3;
+    guideCtx.beginPath();
+    guideCtx.moveTo(left[0], baseY);
+    guideCtx.lineTo(right[0], baseY);
+    guideCtx.stroke();
+
+    guideCtx.restore();
+  }
+
+  /* --- Drawing input --- */
+  let activeStroke = null;
+
+  function pointFromEvent(e) {
+    const rect = drawCanvas.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  }
+
+  function onPointerDown(e) {
+    e.preventDefault();
+    unlockAudioAndSpeech();
+    if (state.scoredThisRound) return; // ignore new strokes once checked, until Clear/Next
+    state.drawing = true;
+    activeStroke = [];
+    state.userStrokes.push(activeStroke);
+    const p = pointFromEvent(e);
+    activeStroke.push(p);
+    state.prevSpeedPoint = p;
+    drawCanvas.setPointerCapture && e.pointerId != null && drawCanvas.setPointerCapture(e.pointerId);
+  }
+
+  function onPointerMove(e) {
+    if (!state.drawing || !activeStroke) return;
+    e.preventDefault();
+    const p = pointFromEvent(e);
+    const prev = activeStroke[activeStroke.length - 1];
+    activeStroke.push(p);
+    drawSegment(prev, p);
+    updateSpeedGauge(prev, p);
+    if (state.mode === 'free') maybeSpawnSparkle(p);
+  }
+
+  function onPointerUp(e) {
+    if (!state.drawing) return;
+    state.drawing = false;
+    activeStroke = null;
+  }
+
+  drawCanvas.addEventListener('pointerdown', onPointerDown);
+  drawCanvas.addEventListener('pointermove', onPointerMove);
+  window.addEventListener('pointerup', onPointerUp);
+  window.addEventListener('pointercancel', onPointerUp);
+
+  function drawSegment(prev, p) {
+    drawCtx.lineCap = 'round';
+    drawCtx.lineJoin = 'round';
+    const w = Math.max(5, transform.scale * 6);
+    drawCtx.lineWidth = w;
+    if (state.mode === 'trace') {
+      drawCtx.strokeStyle = '#ff5a36';
+      drawCtx.beginPath();
+      drawCtx.moveTo(prev.x, prev.y);
+      drawCtx.lineTo(p.x, p.y);
+      drawCtx.stroke();
+    } else {
+      const dist = Math.hypot(p.x - prev.x, p.y - prev.y);
+      unicornHue = (unicornHue + dist * 1.6) % 360;
+      drawCtx.strokeStyle = `hsl(${unicornHue}, 85%, 68%)`;
+      drawCtx.beginPath();
+      drawCtx.moveTo(prev.x, prev.y);
+      drawCtx.lineTo(p.x, p.y);
+      drawCtx.stroke();
+    }
+  }
+  let unicornHue = 0;
+
+  function redrawUserStrokes() {
+    const rect = canvasWrap.getBoundingClientRect();
+    drawCtx.clearRect(0, 0, rect.width, rect.height);
+    unicornHue = 0;
+    state.userStrokes.forEach((stroke) => {
+      for (let i = 1; i < stroke.length; i++) drawSegment(stroke[i - 1], stroke[i]);
+    });
+  }
+
+  /* --- Speedometer (racecar) --- */
+  function updateSpeedGauge(prev, p) {
+    if (state.mode !== 'trace') return;
+    const dist = Math.hypot(p.x - prev.x, p.y - prev.y);
+    const speed = Math.min(1, dist / 26);
+    const angle = -90 + speed * 180;
+    gaugeNeedle.setAttribute('transform', `rotate(${angle} 50 78)`);
+  }
+  function setGaugeToScore(percent) {
+    const angle = -90 + (percent / 100) * 180;
+    gaugeNeedle.setAttribute('transform', `rotate(${angle} 50 78)`);
+    const dash = 188 - (percent / 100) * 188;
+    gaugeFill.style.transition = 'stroke-dashoffset 0.7s ease';
+    gaugeFill.setAttribute('stroke-dashoffset', String(dash));
+  }
+
+  /* --- Sparkles (unicorn) --- */
+  let lastSparkleAt = 0;
+  function maybeSpawnSparkle(p) {
+    const now = performance.now();
+    if (now - lastSparkleAt < 45) return;
+    lastSparkleAt = now;
+    const colors = ['#f5c542', '#c86bf0', '#7ad0d8', '#ff9ecb'];
+    for (let i = 0; i < 2; i++) {
+      state.particles.push({
+        x: p.x + (Math.random() - 0.5) * 10,
+        y: p.y + (Math.random() - 0.5) * 10,
+        vx: (Math.random() - 0.5) * 0.4,
+        vy: -0.3 - Math.random() * 0.5,
+        life: 1,
+        size: 3 + Math.random() * 4,
+        color: colors[Math.floor(Math.random() * colors.length)],
+      });
+    }
+  }
+
+  function startGameLoop() {
+    stopGameLoop();
+    const loop = () => {
+      stepParticles();
+      state.rafId = requestAnimationFrame(loop);
+    };
+    state.rafId = requestAnimationFrame(loop);
+  }
+  function stopGameLoop() {
+    if (state.rafId) cancelAnimationFrame(state.rafId);
+    state.rafId = null;
+  }
+
+  function stepParticles() {
+    if (state.mode !== 'free' || state.particles.length === 0) return;
+    const rect = canvasWrap.getBoundingClientRect();
+    // Redraw strokes then particles on top each frame only while particles exist,
+    // to avoid constantly clearing/re-drawing the (expensive) full ink history.
+    const ctx = drawCtx;
+    // Clear only a version buffer approach is overkill here; instead we draw
+    // particles onto an overlay pass without touching the ink beneath by
+    // painting on the same canvas but never clearing user ink — so we just
+    // paint particles and let them fade by drawing translucent circles,
+    // relying on the next full redraw (stroke/clear/next) to clean up.
+    state.particles = state.particles.filter((pt) => pt.life > 0.02);
+    state.particles.forEach((pt) => {
+      pt.x += pt.vx;
+      pt.y += pt.vy;
+      pt.life *= 0.94;
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, pt.life);
+      ctx.fillStyle = pt.color;
+      ctx.beginPath();
+      drawStar(ctx, pt.x, pt.y, pt.size * pt.life + 1, 4);
+      ctx.fill();
+      ctx.restore();
+    });
+  }
+  function drawStar(ctx, cx, cy, r, points) {
+    const step = Math.PI / points;
+    for (let i = 0; i < points * 2; i++) {
+      const rad = i % 2 === 0 ? r : r * 0.42;
+      const a = i * step - Math.PI / 2;
+      const x = cx + Math.cos(a) * rad;
+      const y = cy + Math.sin(a) * rad;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+  }
+
+  /* --- Round lifecycle --- */
+  function resetRound() {
+    state.userStrokes = [];
+    state.scoredThisRound = false;
+    state.particles = [];
+    unicornHue = Math.random() * 360;
+    updateHeader();
+    const rect = canvasWrap.getBoundingClientRect();
+    drawCtx.clearRect(0, 0, rect.width, rect.height);
+    drawGuide(); // also wipes any answer reveal left on the guide layer
+    resultBar.classList.remove('show');
+    controlsRow.style.display = '';
+    gaugeFill.setAttribute('stroke-dashoffset', '188');
+    gaugeNeedle.setAttribute('transform', 'rotate(-90 50 78)');
+  }
+
+  // Free mode has no guide while writing - after checking, trace the
+  // actual (horizontally-adjusted) answer on top so the child/parent can
+  // see exactly how their attempt compares. `strokesPixel` is already in
+  // canvas pixel space (the same points that were just graded).
+  function revealAnswerOverlay(strokesPixel) {
+    guideCtx.save();
+    guideCtx.lineCap = 'round';
+    guideCtx.lineJoin = 'round';
+    guideCtx.lineWidth = Math.max(3.5, transform.scale * 4.2);
+    guideCtx.setLineDash([transform.scale * 2.6, transform.scale * 3]);
+    guideCtx.strokeStyle = 'rgba(74, 50, 102, 0.55)';
+    strokesPixel.forEach((stroke) => {
+      guideCtx.beginPath();
+      stroke.forEach((pt, i) => {
+        const [x, y] = pt;
+        if (i === 0) guideCtx.moveTo(x, y); else guideCtx.lineTo(x, y);
+      });
+      guideCtx.stroke();
+    });
+    guideCtx.restore();
+  }
+
+  btnClear.addEventListener('click', () => {
+    unlockAudioAndSpeech();
+    resetRound();
+  });
+
+  btnCheck.addEventListener('click', () => {
+    unlockAudioAndSpeech();
+    if (state.userStrokes.every((s) => s.length < 2)) {
+      Speaker.speak('Draw it first, then tap check!');
+      return;
+    }
+    scoreRound();
+  });
+
+  function scoreRound() {
+    const tmpl = currentTemplate();
+    const templatePixel = tmpl.map((stroke) => stroke.map(toPixel));
+    const userPixel = state.userStrokes.map((s) => s.map((p) => [p.x, p.y]));
+
+    // Free mode has no visible guide, so the "answer" we grade against is
+    // shifted/rescaled horizontally to match where the child actually
+    // wrote (vertical stays pinned to the ruled lines). This is also
+    // exactly what gets drawn in the reveal, so the comparison is honest.
+    const templateForScoring = state.mode === 'free'
+      ? adjustTemplateToUser(templatePixel, userPixel)
+      : templatePixel;
+
+    const toleranceUnits = state.ageLevel === 'loose' ? 4.6 : 3.0;
+    const tolerancePx = toleranceUnits * transform.scale;
+
+    const result = scoreDrawing(templateForScoring, userPixel, tolerancePx);
+    state.scoredThisRound = true;
+    state.lastScore = result.percent;
+    recordProgress(state.currentChar, result.percent);
+
+    if (state.mode === 'free') revealAnswerOverlay(templateForScoring);
+
+    const verdict = verdictForScore(result.percent);
+    showFeedback(result.percent, verdict);
+    setGaugeToScore(result.percent);
+  }
+
+  function recordProgress(ch, percent) {
+    const rec = state.progress.mastered[ch] || { best: 0, attempts: 0 };
+    rec.attempts += 1;
+    rec.best = Math.max(rec.best, percent);
+    state.progress.mastered[ch] = rec;
+    saveProgress();
+  }
+
+  const FEEDBACK_COPY = {
+    trace: {
+      excellent: { badge: '🏆', line: 'Pole position! Amazing racing line!', say: 'Vroom! Pole position! You are in first place!' },
+      good: { badge: '🏁', line: 'Nice lap! Keep it up.', say: 'Nice lap! Keep it up!' },
+      okay: { badge: '🔧', line: 'Pit stop needed — try that lap again.', say: 'Pit stop! Let us try that lap again.' },
+      retry: { badge: '💨', line: 'Spin out! Let\u2019s retry that lap.', say: 'Spin out! Let us retry that lap.' },
+    },
+    free: {
+      excellent: { badge: '🦄', line: 'Magical unicorn horn!', say: 'Magical unicorn horn! Wonderful spell!' },
+      good: { badge: '✨', line: 'Sparkly! Compare your lines to the answer.', say: 'Sparkly! Almost perfect magic!' },
+      okay: { badge: '🌙', line: 'A little fizzle — see the answer traced now.', say: 'A little fizzle. Try the spell again.' },
+      retry: { badge: '💫', line: 'Spell fizzled — see the answer traced now.', say: 'Oops, spell fizzled! Try again.' },
+    },
+  };
+
+  function showFeedback(percent, verdict) {
+    const copy = FEEDBACK_COPY[state.mode][verdict];
+    feedbackBadge.textContent = copy.badge;
+    feedbackScore.textContent = percent + '%';
+    feedbackLine.textContent = copy.line;
+    controlsRow.style.display = 'none';
+    resultBar.classList.add('show');
+    Speaker.speak(copy.say);
+    playFeedbackSound(state.mode, verdict);
+  }
+
+  function playFeedbackSound(mode, verdict) {
+    if (mode === 'trace') {
+      if (verdict === 'excellent' || verdict === 'good') {
+        SoundFX.engineRev();
+        setTimeout(() => SoundFX.pitStopChime(), 350);
+      } else {
+        SoundFX.tireSqueal();
+      }
+    } else {
+      if (verdict === 'excellent') {
+        SoundFX.harpGliss();
+        setTimeout(() => SoundFX.cheering(), 300);
+      } else if (verdict === 'good') {
+        SoundFX.sparkleChime();
+      } else {
+        SoundFX.fizzle();
+      }
+    }
+  }
+
+  btnRetry.addEventListener('click', () => {
+    unlockAudioAndSpeech();
+    resetRound();
+  });
+  btnNext.addEventListener('click', () => {
+    unlockAudioAndSpeech();
+    const list = state.set === 'letters' ? LETTER_SET : NUMBER_SET;
+    const idx = list.indexOf(state.currentChar);
+    const nextCh = list[(idx + 1) % list.length];
+    openChar(nextCh);
+  });
+
+  /* ============================= Progress screen ============================= */
+  function renderProgressGrid() {
+    progressGrid.innerHTML = '';
+    let count = 0;
+    ALL_CHARS.forEach((ch) => {
+      const mastered = isMastered(ch);
+      if (mastered) count++;
+      const cell = document.createElement('div');
+      cell.className = 'progress-cell' + (mastered ? ' mastered' : '');
+      cell.textContent = ch;
+      progressGrid.appendChild(cell);
+    });
+    progressCountNum.textContent = String(count);
+  }
+
+  btnResetProgress.addEventListener('click', () => {
+    if (confirm('Reset all saved progress? This cannot be undone.')) {
+      state.progress = { mastered: {} };
+      saveProgress();
+      renderProgressGrid();
+    }
+  });
+
+  /* ============================= Audio / speech unlock ============================= */
+  function unlockAudioAndSpeech() {
+    if (state.audioUnlocked) return;
+    state.audioUnlocked = true;
+    SoundFX.unlock();
+    Speaker.unlock();
+  }
+
+  function toggleMute() {
+    const nowMuted = !SoundFX.muted;
+    SoundFX.setMuted(nowMuted);
+    Speaker.setEnabled(!nowMuted);
+    const icon = nowMuted ? '🔇' : '🔊';
+    btnMute.textContent = icon;
+    btnMute2.textContent = icon;
+  }
+  btnMute.addEventListener('click', toggleMute);
+  btnMute2.addEventListener('click', toggleMute);
+
+  /* ============================= Init ============================= */
+  syncPickerTabs();
+  renderPickerGrid();
+})();
+
+</script>
+</body>
+</html>
