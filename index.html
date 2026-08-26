@@ -355,6 +355,21 @@ body.theme-unicorn .ctrl-btn--primary { background: var(--uni-accent); }
 }
 .progress-cell.mastered { opacity: 1; background: linear-gradient(160deg, #ffe9a8, #ffcf5c); }
 
+.mode-card__name small { font-weight: 600; opacity: 0.7; font-size: 0.65em; }
+
+.celebrate-burst { position: absolute; inset: 0; pointer-events: none; z-index: 4; overflow: visible; }
+.celebrate-emoji {
+  position: absolute;
+  bottom: 4%;
+  opacity: 0;
+  animation: burstUp 1.6s ease-out forwards;
+}
+@keyframes burstUp {
+  0% { transform: translateY(0) rotate(0deg); opacity: 0; }
+  12% { opacity: 1; }
+  100% { transform: translateY(-260px) rotate(380deg); opacity: 0; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
 }
@@ -365,37 +380,29 @@ body.theme-unicorn .ctrl-btn--primary { background: var(--uni-accent); }
 
 <div id="app">
 
-  <!-- ===================== SCREEN: MODE SELECT ===================== -->
+  <!-- ===================== SCREEN: PROFILE SELECT ===================== -->
   <section id="screen-menu" class="screen active">
     <div class="menu-wrap">
       <p class="eyebrow">Trace &amp; Write</p>
-      <h1 class="menu-title">Choose your adventure</h1>
-      <p class="menu-sub">Pick a track. Every letter and number is a mission.</p>
+      <h1 class="menu-title">Who's practicing?</h1>
+      <p class="menu-sub">Pick your name to jump in.</p>
 
       <div class="mode-cards">
-        <button class="mode-card mode-card--race" data-mode="trace" type="button">
+        <button class="mode-card mode-card--race" data-profile="sam" type="button">
           <span class="mode-card__icon" aria-hidden="true">🏎️</span>
-          <span class="mode-card__name">Racecar Trace</span>
-          <span class="mode-card__desc">Follow the dashed track with your finger. Cross the line to win!</span>
+          <span class="mode-card__name">Sam <small>(age 3)</small></span>
+          <span class="mode-card__desc">Traces letters and numbers around the racetrack.</span>
           <span class="mode-card__cta">Start the engine</span>
         </button>
-        <button class="mode-card mode-card--unicorn" data-mode="free" type="button">
+        <button class="mode-card mode-card--unicorn" data-profile="kate" type="button">
           <span class="mode-card__icon" aria-hidden="true">🦄</span>
-          <span class="mode-card__name">Unicorn Magic</span>
-          <span class="mode-card__desc">No lines to follow — write it from memory and cast the spell!</span>
+          <span class="mode-card__name">Kate <small>(age 5)</small></span>
+          <span class="mode-card__desc">Writes freehand and casts a unicorn spell.</span>
           <span class="mode-card__cta">Open the spellbook</span>
         </button>
       </div>
 
-      <div class="age-toggle" role="group" aria-label="Difficulty">
-        <span class="age-toggle__label">How careful should I be?</span>
-        <div class="age-toggle__buttons">
-          <button type="button" class="age-chip" data-age="loose" aria-pressed="true">Little racer <span>(ages 3–4)</span></button>
-          <button type="button" class="age-chip" data-age="strict" aria-pressed="false">Sharp scribe <span>(ages 5–6)</span></button>
-        </div>
-      </div>
-
-      <button type="button" id="btn-view-progress" class="link-btn">See my progress →</button>
+      <button type="button" id="btn-view-progress" class="link-btn">See progress →</button>
     </div>
   </section>
 
@@ -408,7 +415,8 @@ body.theme-unicorn .ctrl-btn--primary { background: var(--uni-accent); }
     </header>
 
     <div class="picker-tabs" role="tablist">
-      <button type="button" class="tab" data-set="letters" role="tab" aria-selected="true">Letters</button>
+      <button type="button" class="tab" data-set="upper" role="tab" aria-selected="true">Uppercase</button>
+      <button type="button" class="tab" data-set="lower" role="tab" aria-selected="false">Lowercase</button>
       <button type="button" class="tab" data-set="numbers" role="tab" aria-selected="false">Numbers</button>
     </div>
 
@@ -484,7 +492,7 @@ body.theme-unicorn .ctrl-btn--primary { background: var(--uni-accent); }
     </header>
 
     <div class="progress-summary">
-      <p class="progress-count"><span id="progress-count-num">0</span> / 36</p>
+      <p class="progress-count"><span id="progress-count-num">0</span> / 62</p>
       <p class="progress-caption">letters &amp; numbers mastered</p>
     </div>
 
@@ -655,9 +663,118 @@ const NUMBER_TEMPLATES = {
   ],
 };
 
-const ALL_TEMPLATES = Object.assign({}, LETTER_TEMPLATES, NUMBER_TEMPLATES);
+/**
+ * Lowercase templates use the same 0-100 box and the same three ruled
+ * lines (top=20, midline=50, baseline=80) as uppercase:
+ *   - x-height letters (a c e m n o r s u v w x z) sit between the
+ *     midline and the baseline, just like they would on paper.
+ *   - ascender letters (b d f h k l t) reach up to the top line.
+ *   - descender letters (g j p q y) dip below the baseline into the
+ *     unruled space at the bottom of the box (y > 80).
+ * i/j are drawn without their dot to keep every stroke a fair, similarly
+ * sized target - a missed dot would otherwise cost as much as a missed
+ * major stroke under the per-stroke scoring model.
+ */
+const LOWERCASE_TEMPLATES = {
+  a: [
+    [[62, 54], [50, 50], [40, 53], [35, 62], [36, 71], [44, 79], [54, 80], [62, 76], [64, 68]],
+    [[64, 68], [64, 80]],
+  ],
+  b: [
+    [[32, 20], [32, 80]],
+    [[32, 52], [46, 50], [58, 54], [62, 64], [58, 74], [46, 80], [32, 78]],
+  ],
+  c: [
+    [[62, 55], [50, 50], [40, 53], [34, 62], [35, 71], [44, 79], [56, 80], [64, 73]],
+  ],
+  d: [
+    [[66, 20], [66, 80]],
+    [[66, 52], [52, 50], [40, 54], [36, 64], [40, 74], [52, 80], [66, 78]],
+  ],
+  e: [
+    [[36, 66], [62, 66], [64, 58], [58, 52], [46, 50], [36, 56], [34, 66], [36, 75], [46, 80], [56, 79], [62, 74]],
+  ],
+  f: [
+    [[58, 22], [48, 20], [42, 26], [40, 36], [40, 80]],
+    [[32, 52], [54, 52]],
+  ],
+  g: [
+    [[60, 54], [48, 50], [38, 53], [34, 61], [35, 69], [44, 75], [56, 76], [62, 70], [62, 58]],
+    [[62, 58], [62, 88], [56, 95], [46, 96], [38, 92]],
+  ],
+  h: [
+    [[32, 20], [32, 80]],
+    [[32, 58], [38, 51], [48, 50], [56, 54], [58, 64], [58, 80]],
+  ],
+  i: [
+    [[50, 50], [50, 80]],
+  ],
+  j: [
+    [[58, 50], [58, 88], [52, 95], [44, 94]],
+  ],
+  k: [
+    [[32, 20], [32, 80]],
+    [[58, 48], [34, 62], [60, 80]],
+  ],
+  l: [
+    [[50, 20], [50, 80]],
+  ],
+  m: [
+    [[34, 80], [34, 52], [40, 50], [46, 58], [46, 80]],
+    [[46, 58], [52, 50], [58, 58], [58, 80]],
+  ],
+  n: [
+    [[34, 80], [34, 52], [40, 50], [48, 54], [52, 62], [52, 80]],
+  ],
+  o: [
+    [[50, 50], [60, 53], [64, 62], [64, 68], [60, 77], [50, 80], [40, 77], [36, 68], [36, 62], [40, 53], [50, 50]],
+  ],
+  p: [
+    [[32, 50], [32, 95]],
+    [[32, 52], [46, 50], [58, 54], [62, 64], [58, 74], [46, 80], [32, 78]],
+  ],
+  q: [
+    [[62, 52], [48, 50], [38, 54], [34, 64], [38, 74], [50, 80], [62, 78]],
+    [[62, 50], [62, 95]],
+  ],
+  r: [
+    [[36, 50], [36, 80]],
+    [[36, 54], [44, 50], [52, 52]],
+  ],
+  s: [
+    [[60, 54], [50, 50], [40, 53], [38, 58], [44, 62], [52, 64], [58, 68], [60, 73], [54, 79], [42, 78], [36, 72]],
+  ],
+  t: [
+    [[48, 26], [48, 74], [54, 79], [60, 78]],
+    [[34, 50], [60, 50]],
+  ],
+  u: [
+    [[36, 50], [36, 68], [40, 78], [50, 80], [58, 78], [62, 68], [62, 50]],
+  ],
+  v: [
+    [[34, 50], [50, 80]],
+    [[50, 80], [66, 50]],
+  ],
+  w: [
+    [[30, 50], [40, 80], [50, 58], [60, 80], [70, 50]],
+  ],
+  x: [
+    [[34, 50], [66, 80]],
+    [[66, 50], [34, 80]],
+  ],
+  y: [
+    [[34, 50], [50, 72], [66, 50]],
+    [[50, 72], [42, 96]],
+  ],
+  z: [
+    [[36, 52], [64, 52], [38, 78], [64, 78]],
+  ],
+};
+
+const ALL_TEMPLATES = Object.assign({}, LETTER_TEMPLATES, LOWERCASE_TEMPLATES, NUMBER_TEMPLATES);
 
 const LETTER_SET = Object.keys(LETTER_TEMPLATES);
+const LOWER_SET = Object.keys(LOWERCASE_TEMPLATES);
 const NUMBER_SET = Object.keys(NUMBER_TEMPLATES);
 
 
@@ -843,9 +960,9 @@ function scoreDrawing(templateStrokes, userStrokes, tolerance) {
 }
 
 function verdictForScore(percent) {
-  if (percent >= 80) return 'excellent';
-  if (percent >= 58) return 'good';
-  if (percent >= 32) return 'okay';
+  if (percent >= 96) return 'perfect';
+  if (percent >= 85) return 'good';
+  if (percent >= 50) return 'okay';
   return 'retry';
 }
 
@@ -1014,6 +1131,63 @@ const SoundFX = (() => {
         tone(ac, 440, t0, 0.08, 'sine', 0.08);
       });
     },
+
+    // --- Shared "that's wrong" buzzer, used by both themes for scores under 50% ---
+    buzzer() {
+      run((ac) => {
+        const t0 = ac.currentTime;
+        const osc = ac.createOscillator();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(140, t0);
+        osc.frequency.setValueAtTime(118, t0 + 0.13);
+        osc.frequency.setValueAtTime(140, t0 + 0.26);
+        osc.frequency.setValueAtTime(118, t0 + 0.39);
+        const g = ac.createGain();
+        g.gain.setValueAtTime(0.0001, t0);
+        g.gain.linearRampToValueAtTime(0.16, t0 + 0.03);
+        g.gain.setValueAtTime(0.16, t0 + 0.42);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.55);
+        osc.connect(g);
+        g.connect(ac.destination);
+        osc.start(t0);
+        osc.stop(t0 + 0.6);
+      });
+    },
+
+    // --- Big celebration for a (near-)perfect score ---
+    racecarFanfare() {
+      run((ac) => {
+        const t0 = ac.currentTime;
+        const osc = ac.createOscillator();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(70, t0);
+        osc.frequency.exponentialRampToValueAtTime(320, t0 + 0.3);
+        const g = ac.createGain();
+        g.gain.setValueAtTime(0.0001, t0);
+        g.gain.linearRampToValueAtTime(0.2, t0 + 0.04);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.34);
+        osc.connect(g);
+        g.connect(ac.destination);
+        osc.start(t0);
+        osc.stop(t0 + 0.38);
+        [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone(ac, f, t0 + 0.32 + i * 0.11, 0.3, 'triangle', 0.2));
+        [659.25, 830.6, 987.77, 1318.5].forEach((f, i) => tone(ac, f, t0 + 0.82 + i * 0.11, 0.32, 'triangle', 0.22));
+        noiseBurst(ac, t0 + 0.3, 0.95, 0.13, 2200, 'bandpass');
+      });
+    },
+    unicornFanfare() {
+      run((ac) => {
+        const t0 = ac.currentTime;
+        const scale = [261.6, 293.7, 329.6, 392, 440, 523.3, 587.3, 659.3, 784, 880, 987.7, 1046.5];
+        scale.forEach((f, i) => tone(ac, f, t0 + i * 0.045, 0.32, 'triangle', 0.13));
+        const base = [1046.5, 1174.7, 1318.5, 1568, 1760, 2093];
+        for (let i = 0; i < 8; i++) {
+          const f = base[Math.floor(Math.random() * base.length)];
+          tone(ac, f, t0 + 0.55 + i * 0.05, 0.3, 'sine', 0.12);
+        }
+        noiseBurst(ac, t0 + 0.5, 0.9, 0.12, 2400, 'bandpass');
+      });
+    },
   };
 })();
 
@@ -1082,7 +1256,8 @@ const Speaker = (() => {
   const state = {
     mode: 'trace',        // 'trace' | 'free'
     ageLevel: 'loose',    // 'loose' | 'strict'
-    set: 'letters',       // 'letters' | 'numbers'
+    profile: null,         // 'sam' | 'kate'
+    set: 'upper',          // 'upper' | 'lower' | 'numbers'
     currentChar: 'A',
     userStrokes: [],       // array of strokes; each stroke: array of {x,y}
     drawing: false,
@@ -1093,6 +1268,11 @@ const Speaker = (() => {
     particles: [],          // unicorn sparkle particles
     rafId: null,
     prevSpeedPoint: null,
+  };
+
+  const PROFILES = {
+    sam: { mode: 'trace', ageLevel: 'loose', label: 'Sam' },
+    kate: { mode: 'free', ageLevel: 'strict', label: 'Kate' },
   };
 
   /* ============================= DOM refs ============================= */
@@ -1139,8 +1319,8 @@ const Speaker = (() => {
   const progressCountNum = $('#progress-count-num');
   const btnResetProgress = $('#btn-reset-progress');
 
-  const MASTERY_THRESHOLD = 80;
-  const ALL_CHARS = LETTER_SET.concat(NUMBER_SET);
+  const MASTERY_THRESHOLD = 85;
+  const ALL_CHARS = LETTER_SET.concat(LOWER_SET, NUMBER_SET);
 
   /* ============================= Navigation ============================= */
   function showScreen(name) {
@@ -1162,19 +1342,14 @@ const Speaker = (() => {
   document.querySelectorAll('.mode-card').forEach((card) => {
     card.addEventListener('click', () => {
       unlockAudioAndSpeech();
-      state.mode = card.dataset.mode;
-      state.set = 'letters';
+      const profile = PROFILES[card.dataset.profile];
+      state.profile = card.dataset.profile;
+      state.mode = profile.mode;
+      state.ageLevel = profile.ageLevel;
+      state.set = 'upper';
       syncPickerTabs();
-      pickerTitle.textContent = state.mode === 'trace' ? 'Pick a letter to race' : 'Pick a letter to conjure';
+      pickerTitle.textContent = state.mode === 'trace' ? `Pick a letter for ${profile.label} to race` : `Pick a letter for ${profile.label} to conjure`;
       showScreen('picker');
-    });
-  });
-
-  document.querySelectorAll('.age-chip').forEach((chip) => {
-    chip.addEventListener('click', () => {
-      document.querySelectorAll('.age-chip').forEach((c) => c.setAttribute('aria-pressed', 'false'));
-      chip.setAttribute('aria-pressed', 'true');
-      state.ageLevel = chip.dataset.age;
     });
   });
 
@@ -1192,8 +1367,20 @@ const Speaker = (() => {
     tabs.forEach((t) => t.setAttribute('aria-selected', String(t.dataset.set === state.set)));
   }
 
+  function listForSet(set) {
+    if (set === 'upper') return LETTER_SET;
+    if (set === 'lower') return LOWER_SET;
+    return NUMBER_SET;
+  }
+
+  function setForChar(ch) {
+    if (LETTER_SET.includes(ch)) return 'upper';
+    if (LOWER_SET.includes(ch)) return 'lower';
+    return 'numbers';
+  }
+
   function renderPickerGrid() {
-    const list = state.set === 'letters' ? LETTER_SET : NUMBER_SET;
+    const list = listForSet(state.set);
     pickerGrid.innerHTML = '';
     list.forEach((ch) => {
       const cell = document.createElement('button');
@@ -1213,7 +1400,7 @@ const Speaker = (() => {
   btnContinue.addEventListener('click', () => {
     unlockAudioAndSpeech();
     const next = ALL_CHARS.find((c) => !isMastered(c)) || ALL_CHARS[0];
-    state.set = LETTER_SET.includes(next) ? 'letters' : 'numbers';
+    state.set = setForChar(next);
     openChar(next);
   });
 
@@ -1245,7 +1432,7 @@ const Speaker = (() => {
   }
 
   function promptString() {
-    const kind = LETTER_SET.includes(state.currentChar) ? 'letter' : 'number';
+    const kind = NUMBER_SET.includes(state.currentChar) ? 'number' : 'letter';
     return state.mode === 'trace'
       ? `Trace the ${kind} ${state.currentChar}`
       : `Write the ${kind} ${state.currentChar}`;
@@ -1619,16 +1806,16 @@ const Speaker = (() => {
 
   const FEEDBACK_COPY = {
     trace: {
-      excellent: { badge: '🏆', line: 'Pole position! Amazing racing line!', say: 'Vroom! Pole position! You are in first place!' },
-      good: { badge: '🏁', line: 'Nice lap! Keep it up.', say: 'Nice lap! Keep it up!' },
-      okay: { badge: '🔧', line: 'Pit stop needed — try that lap again.', say: 'Pit stop! Let us try that lap again.' },
-      retry: { badge: '💨', line: 'Spin out! Let\u2019s retry that lap.', say: 'Spin out! Let us retry that lap.' },
+      perfect: { badge: '🏆', line: 'CHECKERED FLAG! Perfect race!', say: 'Checkered flag! That was a perfect race!' },
+      good: { badge: '🏁', line: 'Pole position! Great racing line!', say: 'Great racing line! Nice and fast!' },
+      okay: { badge: '🔧', line: 'Pit stop needed — getting there.', say: 'Pit stop! You are getting there.' },
+      retry: { badge: '💥', line: 'Crashed out — let\u2019s retry that lap.', say: 'Oops, crashed out. Let us retry that lap.' },
     },
     free: {
-      excellent: { badge: '🦄', line: 'Magical unicorn horn!', say: 'Magical unicorn horn! Wonderful spell!' },
-      good: { badge: '✨', line: 'Sparkly! Compare your lines to the answer.', say: 'Sparkly! Almost perfect magic!' },
-      okay: { badge: '🌙', line: 'A little fizzle — see the answer traced now.', say: 'A little fizzle. Try the spell again.' },
-      retry: { badge: '💫', line: 'Spell fizzled — see the answer traced now.', say: 'Oops, spell fizzled! Try again.' },
+      perfect: { badge: '🦄', line: 'PERFECT MAGIC! Unicorn master!', say: 'Perfect magic! You are a true unicorn wizard!' },
+      good: { badge: '✨', line: 'Magical unicorn horn! Nicely done.', say: 'Magical unicorn horn! Wonderful spell!' },
+      okay: { badge: '🌙', line: 'Sparkly, but the spell needs more magic.', say: 'Sparkly, but the spell needs a bit more magic.' },
+      retry: { badge: '💫', line: 'Spell fizzled — see the answer traced now.', say: 'Oops, the spell fizzled! Try again.' },
     },
   };
 
@@ -1641,26 +1828,44 @@ const Speaker = (() => {
     resultBar.classList.add('show');
     Speaker.speak(copy.say);
     playFeedbackSound(state.mode, verdict);
+    if (verdict === 'perfect') {
+      celebrateBurst(state.mode === 'trace' ? ['🏎️', '🏁', '🏆'] : ['🦄', '✨', '🌈']);
+    }
   }
 
+  // Four tiers: under 50% is a flat "no" (buzzer), 50-84% is middling
+  // encouragement, 85-95% is genuinely good, and 96%+ gets the full
+  // fanfare - reserved for something close to an actually perfect letter.
   function playFeedbackSound(mode, verdict) {
     if (mode === 'trace') {
-      if (verdict === 'excellent' || verdict === 'good') {
-        SoundFX.engineRev();
-        setTimeout(() => SoundFX.pitStopChime(), 350);
-      } else {
-        SoundFX.tireSqueal();
-      }
+      if (verdict === 'perfect') SoundFX.racecarFanfare();
+      else if (verdict === 'good') { SoundFX.engineRev(); setTimeout(() => SoundFX.pitStopChime(), 320); }
+      else if (verdict === 'okay') SoundFX.pitStopChime();
+      else SoundFX.buzzer();
     } else {
-      if (verdict === 'excellent') {
-        SoundFX.harpGliss();
-        setTimeout(() => SoundFX.cheering(), 300);
-      } else if (verdict === 'good') {
-        SoundFX.sparkleChime();
-      } else {
-        SoundFX.fizzle();
-      }
+      if (verdict === 'perfect') SoundFX.unicornFanfare();
+      else if (verdict === 'good') SoundFX.harpGliss();
+      else if (verdict === 'okay') SoundFX.sparkleChime();
+      else SoundFX.buzzer();
     }
+  }
+
+  // A quick burst of themed emoji rising and fading over the canvas, for
+  // a (near-)perfect score.
+  function celebrateBurst(emojis) {
+    const container = document.createElement('div');
+    container.className = 'celebrate-burst';
+    for (let i = 0; i < 14; i++) {
+      const span = document.createElement('span');
+      span.className = 'celebrate-emoji';
+      span.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+      span.style.left = (4 + Math.random() * 88) + '%';
+      span.style.animationDelay = (Math.random() * 0.3) + 's';
+      span.style.fontSize = (1.1 + Math.random() * 1.3) + 'rem';
+      container.appendChild(span);
+    }
+    canvasWrap.appendChild(container);
+    setTimeout(() => container.remove(), 1900);
   }
 
   btnRetry.addEventListener('click', () => {
@@ -1669,7 +1874,7 @@ const Speaker = (() => {
   });
   btnNext.addEventListener('click', () => {
     unlockAudioAndSpeech();
-    const list = state.set === 'letters' ? LETTER_SET : NUMBER_SET;
+    const list = listForSet(state.set);
     const idx = list.indexOf(state.currentChar);
     const nextCh = list[(idx + 1) % list.length];
     openChar(nextCh);
