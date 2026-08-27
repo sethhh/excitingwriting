@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-<title>Trace &amp; Write — Racecars &amp; Unicorns</title>
+<title>Exciting Writing</title>
 <meta name="description" content="A handwriting tracing app for kids: race letters and numbers around the track, or write freehand and cast a unicorn spell." />
 <link rel="icon" href="data:,">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -383,7 +383,7 @@ body.theme-unicorn .ctrl-btn--primary { background: var(--uni-accent); }
   <!-- ===================== SCREEN: PROFILE SELECT ===================== -->
   <section id="screen-menu" class="screen active">
     <div class="menu-wrap">
-      <p class="eyebrow">Trace &amp; Write</p>
+      <p class="eyebrow">Exciting Writing</p>
       <h1 class="menu-title">Who's practicing?</h1>
       <p class="menu-sub">Pick your name to jump in.</p>
 
@@ -471,8 +471,7 @@ body.theme-unicorn .ctrl-btn--primary { background: var(--uni-accent); }
         </div>
       </div>
       <div class="result-bar__actions">
-        <button type="button" class="ghost-btn" id="btn-retry">Try again</button>
-        <button type="button" class="primary-btn" id="btn-next">Next →</button>
+        <button type="button" class="primary-btn" id="btn-result-action">Next →</button>
       </div>
     </div>
 
@@ -532,7 +531,7 @@ const LETTER_TEMPLATES = {
     [[30, 50], [50, 52], [58, 62], [58, 70], [50, 78], [30, 80]],
   ],
   C: [
-    [[66, 30], [54, 22], [40, 24], [31, 36], [30, 50], [31, 64], [40, 76], [54, 78], [66, 70]],
+    [[66, 30], [54, 22], [40, 24], [31, 36], [30, 50], [31, 64], [40, 76], [54, 78], [62, 76], [66, 70]],
   ],
   D: [
     [[30, 20], [30, 80]],
@@ -550,7 +549,7 @@ const LETTER_TEMPLATES = {
     [[30, 50], [58, 50]],
   ],
   G: [
-    [[66, 30], [54, 22], [40, 24], [31, 36], [30, 50], [31, 64], [40, 76], [54, 78], [66, 70], [66, 54], [52, 54]],
+    [[66, 30], [54, 22], [40, 24], [31, 36], [30, 50], [31, 64], [40, 76], [54, 78], [62, 76], [66, 70], [66, 54], [52, 54]],
   ],
   H: [
     [[30, 20], [30, 80]],
@@ -677,22 +676,23 @@ const NUMBER_TEMPLATES = {
  */
 const LOWERCASE_TEMPLATES = {
   a: [
-    [[62, 54], [50, 50], [40, 53], [35, 62], [36, 71], [44, 79], [54, 80], [62, 76], [64, 68]],
-    [[64, 68], [64, 80]],
+    [[62, 54], [50, 50], [40, 53], [35, 62], [36, 71], [44, 79], [54, 80], [60, 77], [63, 72]],
+    [[62, 54], [62, 80]],
   ],
   b: [
     [[32, 20], [32, 80]],
     [[32, 52], [46, 50], [58, 54], [62, 64], [58, 74], [46, 80], [32, 78]],
   ],
   c: [
-    [[62, 55], [50, 50], [40, 53], [34, 62], [35, 71], [44, 79], [56, 80], [64, 73]],
+    [[62, 55], [50, 50], [40, 53], [34, 62], [35, 71], [44, 79], [56, 80], [61, 77], [64, 73]],
   ],
   d: [
     [[66, 20], [66, 80]],
     [[66, 52], [52, 50], [40, 54], [36, 64], [40, 74], [52, 80], [66, 78]],
   ],
   e: [
-    [[36, 66], [62, 66], [64, 58], [58, 52], [46, 50], [36, 56], [34, 66], [36, 75], [46, 80], [56, 79], [62, 74]],
+    [[62, 60], [58, 52], [46, 50], [36, 56], [34, 66], [36, 75], [46, 80], [58, 78], [63, 71]],
+    [[35, 64], [62, 64]],
   ],
   f: [
     [[58, 22], [48, 20], [42, 26], [40, 36], [40, 80]],
@@ -1211,13 +1211,25 @@ const Speaker = (() => {
   }
 
   return {
-    speak(text) {
-      if (!enabled || !supported) return;
+    // onEnd (optional) fires once speech actually finishes - or right away
+    // if speech is muted/unsupported/fails, so callers can chain on it
+    // reliably either way.
+    speak(text, onEnd) {
+      if (!enabled || !supported) {
+        if (onEnd) onEnd();
+        return;
+      }
       window.speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(text);
       u.rate = 0.92;
       u.pitch = 1.05;
       if (voice) u.voice = voice;
+      if (onEnd) {
+        let done = false;
+        const finish = () => { if (!done) { done = true; onEnd(); } };
+        u.onend = finish;
+        u.onerror = finish;
+      }
       window.speechSynthesis.speak(u);
     },
     setEnabled(v) {
@@ -1306,8 +1318,7 @@ const Speaker = (() => {
   const feedbackBadge = $('#feedback-badge');
   const feedbackScore = $('#feedback-score');
   const feedbackLine = $('#feedback-line');
-  const btnRetry = $('#btn-retry');
-  const btnNext = $('#btn-next');
+  const btnResultAction = $('#btn-result-action');
 
   const btnHear = $('#btn-hear');
   const btnClear = $('#btn-clear');
@@ -1320,6 +1331,7 @@ const Speaker = (() => {
   const btnResetProgress = $('#btn-reset-progress');
 
   const MASTERY_THRESHOLD = 85;
+  const ADVANCE_THRESHOLD = 50; // a middling ("sparkly") result is still enough to move on
   const ALL_CHARS = LETTER_SET.concat(LOWER_SET, NUMBER_SET);
 
   /* ============================= Navigation ============================= */
@@ -1334,6 +1346,7 @@ const Speaker = (() => {
   document.querySelectorAll('[data-nav]').forEach((btn) => {
     btn.addEventListener('click', () => {
       if (btn.dataset.nav === 'picker') stopGameLoop();
+      clearAutoAdvance();
       showScreen(btn.dataset.nav);
     });
   });
@@ -1718,6 +1731,7 @@ const Speaker = (() => {
 
   /* --- Round lifecycle --- */
   function resetRound() {
+    clearAutoAdvance();
     state.userStrokes = [];
     state.scoredThisRound = false;
     state.particles = [];
@@ -1826,11 +1840,39 @@ const Speaker = (() => {
     feedbackLine.textContent = copy.line;
     controlsRow.style.display = 'none';
     resultBar.classList.add('show');
-    Speaker.speak(copy.say);
     playFeedbackSound(state.mode, verdict);
     if (verdict === 'perfect') {
       celebrateBurst(state.mode === 'trace' ? ['🏎️', '🏁', '🏆'] : ['🦄', '✨', '🌈']);
     }
+
+    // A middling ("sparkly") result is still enough to move on - only a
+    // genuine miss sends them back to the same letter. Real mastery
+    // (the star) still needs the higher MASTERY_THRESHOLD separately.
+    const passed = percent >= ADVANCE_THRESHOLD;
+    btnResultAction.textContent = passed ? 'Next letter →' : 'Try again now';
+
+    // Let the voice actually finish before moving on - don't cut it off
+    // partway through. Falls back to a fixed pause if speech is muted,
+    // unsupported, or errors out, and a safety-net timeout in case the
+    // browser never fires the "finished speaking" event at all.
+    clearAutoAdvance();
+    const MIN_WAIT = 900;
+    const AFTER_SPEECH_PAUSE = 500;
+    const startedAt = performance.now();
+    let advanced = false;
+    const doAdvance = () => {
+      if (advanced) return;
+      advanced = true;
+      autoAdvanceTimer = null;
+      if (passed) goToNextChar(); else retrySameChar();
+    };
+    Speaker.speak(copy.say, () => {
+      const elapsed = performance.now() - startedAt;
+      const remaining = Math.max(0, MIN_WAIT - elapsed) + AFTER_SPEECH_PAUSE;
+      clearAutoAdvance();
+      autoAdvanceTimer = setTimeout(doAdvance, remaining);
+    });
+    autoAdvanceTimer = setTimeout(doAdvance, 6000); // safety net
   }
 
   // Four tiers: under 50% is a flat "no" (buzzer), 50-84% is middling
@@ -1868,16 +1910,27 @@ const Speaker = (() => {
     setTimeout(() => container.remove(), 1900);
   }
 
-  btnRetry.addEventListener('click', () => {
-    unlockAudioAndSpeech();
-    resetRound();
-  });
-  btnNext.addEventListener('click', () => {
-    unlockAudioAndSpeech();
+  let autoAdvanceTimer = null;
+  function clearAutoAdvance() {
+    if (autoAdvanceTimer) { clearTimeout(autoAdvanceTimer); autoAdvanceTimer = null; }
+  }
+
+  function goToNextChar() {
     const list = listForSet(state.set);
     const idx = list.indexOf(state.currentChar);
     const nextCh = list[(idx + 1) % list.length];
     openChar(nextCh);
+  }
+
+  function retrySameChar() {
+    resetRound();
+    speakPrompt();
+  }
+
+  btnResultAction.addEventListener('click', () => {
+    unlockAudioAndSpeech();
+    clearAutoAdvance();
+    if (state.lastScore >= ADVANCE_THRESHOLD) goToNextChar(); else retrySameChar();
   });
 
   /* ============================= Progress screen ============================= */
